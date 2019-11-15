@@ -13,7 +13,7 @@ import socket
 
 import tensorboard_logger as tb_logger
 
-from torchvision import transforms
+from torchvision import transforms, datasets
 from dataset import RGB2Lab, ImageFolderInstance
 from util import adjust_learning_rate, AverageMeter
 from models.alexnet import alexnet

@@ -31,4 +31,4 @@ class RGB2Lab(object):
 
         img = np.asarray(img, np.uint8)
         img = color.rgb2lab(img)
-        return img
+        return np.float32(img)
