@@ -3,11 +3,9 @@ from __future__ import print_function
 import torch
 import torch.nn as nn
 
-"""
-    Alexnet for STL-10
-"""
+
 class alexnet(nn.Module):
-    def __init__(self, feat_dim=64):
+    def __init__(self, feat_dim=128):
         super(alexnet, self).__init__()
 
         self.l_to_ab = alexnet_half(in_channel=1, feat_dim=feat_dim)
@@ -24,19 +22,19 @@ class alexnet_half(nn.Module):
     def __init__(self, in_channel=1, feat_dim=128):
         super(alexnet_half, self).__init__()
         self.conv_block_1 = nn.Sequential(
-            nn.Conv2d(in_channel, 96//2, 3, 1, 1, bias=False),
+            nn.Conv2d(in_channel, 96//2, 11, 4, 2, bias=False),
             nn.BatchNorm2d(96//2),
             nn.ReLU(inplace=True),
             nn.MaxPool2d(3, 2),
         )
         self.conv_block_2 = nn.Sequential(
-            nn.Conv2d(96//2, 192//2, 3, 1, 1, bias=False),
-            nn.BatchNorm2d(192//2),
+            nn.Conv2d(96//2, 256//2, 5, 1, 2, bias=False),
+            nn.BatchNorm2d(256//2),
             nn.ReLU(inplace=True),
             nn.MaxPool2d(3, 2),
         )
         self.conv_block_3 = nn.Sequential(
-            nn.Conv2d(192//2, 384//2, 3, 1, 1, bias=False),
+            nn.Conv2d(256//2, 384//2, 3, 1, 1, bias=False),
             nn.BatchNorm2d(384//2),
             nn.ReLU(inplace=True),
         )
@@ -46,13 +44,13 @@ class alexnet_half(nn.Module):
             nn.ReLU(inplace=True),
         )
         self.conv_block_5 = nn.Sequential(
-            nn.Conv2d(384//2, 192//2, 3, 1, 1, bias=False),
-            nn.BatchNorm2d(192//2),
+            nn.Conv2d(384//2, 256//2, 3, 1, 1, bias=False),
+            nn.BatchNorm2d(256//2),
             nn.ReLU(inplace=True),
             nn.MaxPool2d(3, 2),
         )
         self.fc6 = nn.Sequential(
-            nn.Linear(192 * 7 * 7 // 2, 4096 // 2),
+            nn.Linear(256 * 6 * 6 // 2, 4096 // 2),
             nn.BatchNorm1d(4096 // 2),
             nn.ReLU(inplace=True),
         )
@@ -111,10 +109,8 @@ class Normalize(nn.Module):
 if __name__ == '__main__':
 
     import torch
-    # model = alexnet().cuda()
-    model = alexnet()
-    # data = torch.rand(10, 3, 224, 224).cuda()
-    data = torch.rand(10, 3, 224, 224)
+    model = alexnet().cuda()
+    data = torch.rand(10, 3, 224, 224).cuda()
     out = model.compute_feat(data, 5)
 
     for i in range(10):
