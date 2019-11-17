@@ -156,10 +156,10 @@ def get_train_val_loader(args):
 def set_model(args, ngpus_per_node):
     if args.model == 'alexnet':
         model = alexnet()
-        classifier = LinearClassifierAlexNet(layer=args.layer, n_label=1000, pool_type='max')
+        classifier = LinearClassifierAlexNet(layer=args.layer, n_label=10, pool_type='max')
     elif args.model.startswith('resnet'):
         model = ResNetV2(args.model)
-        classifier = LinearClassifierResNetV2(layer=args.layer, n_label=1000, pool_type='avg')
+        classifier = LinearClassifierResNetV2(layer=args.layer, n_label=10, pool_type='avg')
     else:
         raise NotImplementedError(args.model)
 
@@ -186,27 +186,30 @@ def set_model(args, ngpus_per_node):
     print('==> done')
     model.eval()
 
-    if args.distributed:
-        if args.gpu is not None:
+    if torch.cuda.is_available():
+        if args.distributed:
+            if args.gpu is not None:
+                torch.cuda.set_device(args.gpu)
+                model.cuda(args.gpu)
+                classifier.cuda(args.gpu)
+                args.batch_size = int(args.batch_size / ngpus_per_node)
+                args.num_workers = int(args.num_workers / ngpus_per_node)
+                model = torch.nn.parallel.DistributedDataParallel(model, device_ids=[args.gpu])
+                classifier = torch.nn.parallel.DistributedDataParallel(classifier, device_ids=[args.gpu])
+            else:
+                model.cuda()
+                model = torch.nn.parallel.DistributedDataParallel(model)
+                classifier.cuda()
+                classifier = torch.nn.parallel.DistributedDataParallel(classifier)
+        elif args.gpu is not None:
             torch.cuda.set_device(args.gpu)
-            model.cuda(args.gpu)
-            classifier.cuda(args.gpu)
-            args.batch_size = int(args.batch_size / ngpus_per_node)
-            args.num_workers = int(args.num_workers / ngpus_per_node)
-            model = torch.nn.parallel.DistributedDataParallel(model, device_ids=[args.gpu])
-            classifier = torch.nn.parallel.DistributedDataParallel(classifier, device_ids=[args.gpu])
+            model = model.cuda(args.gpu)
+            classifier = classifier.cuda(args.gpu)
         else:
-            model.cuda()
-            model = torch.nn.parallel.DistributedDataParallel(model)
-            classifier.cuda()
-            classifier = torch.nn.parallel.DistributedDataParallel(classifier)
-    elif args.gpu is not None:
-        torch.cuda.set_device(args.gpu)
-        model = model.cuda(args.gpu)
-        classifier = classifier.cuda(args.gpu)
-    else:
-        model = torch.nn.DataParallel(model).cuda()
-        classifier = torch.nn.DataParallel(classifier).cuda()
+            model = torch.nn.DataParallel(model).cuda()
+            classifier = torch.nn.DataParallel(classifier).cuda()
+
+
 
     criterion = nn.CrossEntropyLoss().cuda(args.gpu)
 
@@ -240,9 +243,10 @@ def train(epoch, train_loader, model, classifier, criterion, optimizer, opt):
         data_time.update(time.time() - end)
 
         input = input.float()
-        if opt.gpu is not None:
-            input = input.cuda(opt.gpu, non_blocking=True)
-        target = target.cuda(opt.gpu, non_blocking=True)
+        if torch.cuda.is_available():
+            if opt.gpu is not None:
+                input = input.cuda(opt.gpu, non_blocking=True)
+            target = target.cuda(opt.gpu, non_blocking=True)
 
         # ===================forward=====================
         with torch.no_grad():

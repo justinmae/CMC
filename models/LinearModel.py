@@ -27,8 +27,8 @@ class LinearClassifierAlexNet(nn.Module):
             pool_size = 5
             nChannels = 384
         elif layer == 5:
-            pool_size = 6
-            nChannels = 256
+            pool_size = 7
+            nChannels = 192
         else:
             raise NotImplementedError('layer not supported: {}'.format(layer))
 
