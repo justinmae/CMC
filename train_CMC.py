@@ -51,9 +51,9 @@ def parse_option():
     # model definition
     parser.add_argument('--model', type=str, default='alexnet', choices=['alexnet', 'resnet50', 'resnet101'])
     parser.add_argument('--nce_k', type=int, default=4096)
-    parser.add_argument('--nce_t', type=float, default=0.07)
+    parser.add_argument('--nce_t', type=float, default=0.1) # Default: 0.07 for ImageNet, 0.1 for STL-10
     parser.add_argument('--nce_m', type=float, default=0.5)
-    parser.add_argument('--feat_dim', type=int, default=128, help='dim of feat for inner product')
+    parser.add_argument('--feat_dim', type=int, default=64, help='dim of feat for inner product')
 
     # specify folder
     parser.add_argument('--data_folder', type=str, default=None, help='path to data')

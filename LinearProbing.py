@@ -116,7 +116,7 @@ def get_train_val_loader(args):
     train_dataset = datasets.ImageFolder(
         train_folder,
         transforms.Compose([
-            transforms.RandomResizedCrop(224, scale=(args.crop_low, 1.0)),
+            transforms.RandomResizedCrop(64, scale=(args.crop_low, 1.)),
             transforms.RandomHorizontalFlip(),
             RGB2Lab(),
             transforms.ToTensor(),
@@ -126,8 +126,8 @@ def get_train_val_loader(args):
     val_dataset = datasets.ImageFolder(
         val_folder,
         transforms.Compose([
-            transforms.Resize(256),
-            transforms.CenterCrop(224),
+            transforms.Resize(74),
+            transforms.CenterCrop(64),
             RGB2Lab(),
             transforms.ToTensor(),
             normalize,
