@@ -93,9 +93,8 @@ def parse_option():
 def get_train_loader(args):
     """get the train loader"""
     data_folder = os.path.join(args.data_folder, 'train')
-    # TODO: Update mean and std for STL-10. This should be on Lab data.
-    normalize = transforms.Normalize(mean=[(0 + 100) / 2, (-86.183 + 98.233) / 2, (-107.857 + 94.478) / 2],
-                                     std=[(100 - 0) / 2, (86.183 + 98.233) / 2, (107.857 + 94.478) / 2])
+    normalize = transforms.Normalize(mean=[(0 + 100) / 2, (-84.914 + 90.781) / 2, (-107.857 + 94.478) / 2],
+                                     std=[(100 - 0) / 2, (84.914 + 90.781) / 2, (107.857 + 94.478) / 2])
     train_transform = transforms.Compose([
         transforms.RandomResizedCrop(64, scale=(args.crop_low, 1.)),
         transforms.RandomHorizontalFlip(),
