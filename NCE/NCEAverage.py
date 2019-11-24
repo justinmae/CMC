@@ -15,6 +15,7 @@ class NCEAverage(nn.Module):
             self.multinomial.cuda()
         self.K = K
 
+        # Using register_buffer so that it is not trained by optimizer
         self.register_buffer('params', torch.tensor([K, T, -1, -1, momentum]))
         stdv = 1. / math.sqrt(inputSize / 3)
         self.register_buffer('memory_l', torch.rand(outputSize, inputSize).mul_(2 * stdv).add_(-stdv))
@@ -26,15 +27,15 @@ class NCEAverage(nn.Module):
         Z_l = self.params[2].item()
         Z_ab = self.params[3].item()
 
-        momentum = self.params[4].item()
-        batchSize = l.size(0)
-        outputSize = self.memory_l.size(0)
-        inputSize = self.memory_l.size(1)
+        momentum = self.params[4].item() # 0.5
+        batchSize = l.size(0) # 256
+        outputSize = self.memory_l.size(0) # 5000
+        inputSize = self.memory_l.size(1) # 64
 
         # score computation
         if idx is None:
-            idx = self.multinomial.draw(batchSize * (self.K + 1)).view(batchSize, -1)
-            idx.select(1, 0).copy_(y.data)
+            idx = self.multinomial.draw(batchSize * (self.K + 1)).view(batchSize, -1) # 256*(4096+1) first col is positive
+            idx.select(1, 0).copy_(y.data) # set first col to be positive
         # sample
         weight_l = torch.index_select(self.memory_l, 0, idx.view(-1)).detach()
         weight_l = weight_l.view(batchSize, K + 1, inputSize)

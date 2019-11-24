@@ -111,6 +111,7 @@ def get_train_val_loader(args):
     train_folder = os.path.join(args.data_folder, 'train')
     val_folder = os.path.join(args.data_folder, 'val')
 
+    # TODO: Get mean and std for training set
     normalize = transforms.Normalize(mean=[(0 + 100) / 2, (-86.183 + 98.233) / 2, (-107.857 + 94.478) / 2],
                                      std=[(100 - 0) / 2, (86.183 + 98.233) / 2, (107.857 + 94.478) / 2])
     train_dataset = datasets.ImageFolder(
@@ -165,7 +166,10 @@ def set_model(args, ngpus_per_node):
 
     # load pre-trained model
     print('==> loading pre-trained model')
-    ckpt = torch.load(args.model_path)
+    if torch.cuda.is_available():
+        ckpt = torch.load(args.model_path)
+    else:
+        ckpt = torch.load(args.model_path, map_location = 'cpu')
     state_dict = ckpt['model']
 
     has_module = False

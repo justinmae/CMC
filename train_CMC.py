@@ -103,6 +103,7 @@ def get_train_loader(args):
         normalize,
     ])
     train_dataset = ImageFolderInstance(data_folder, transform=train_transform)
+    # train_dataset = datasets.STL10(args.data_folder, split='unlabeled', transform=train_transform, download=True)
     train_sampler = None
 
     # train loader
@@ -168,6 +169,9 @@ def train(epoch, train_loader, model, contrast, criterion_l, criterion_ab, optim
 
     end = time.time()
     for idx, (inputs, _, index) in enumerate(train_loader):
+        print(idx, inputs.shape, index.shape)
+        print(index)
+    # for idx, (inputs, index) in enumerate(train_loader):
         data_time.update(time.time() - end)
 
         bsz = inputs.size(0)
