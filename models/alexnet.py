@@ -7,7 +7,7 @@ import torch.nn as nn
     Alexnet for STL-10
 """
 class alexnet(nn.Module):
-    def __init__(self, feat_dim=128):
+    def __init__(self, feat_dim=64):
         super(alexnet, self).__init__()
 
         self.l_to_ab = alexnet_half(in_channel=1, feat_dim=feat_dim)
@@ -21,7 +21,7 @@ class alexnet(nn.Module):
 
 
 class alexnet_half(nn.Module):
-    def __init__(self, in_channel=1, feat_dim=128):
+    def __init__(self, in_channel=1, feat_dim=64):
         super(alexnet_half, self).__init__()
         self.conv_block_1 = nn.Sequential(
             nn.Conv2d(in_channel, 96//2, 3, 1, 1, bias=False),
