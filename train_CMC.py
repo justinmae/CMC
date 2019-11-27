@@ -14,9 +14,10 @@ import socket
 import tensorboard_logger as tb_logger
 
 from torchvision import transforms, datasets
-from dataset import RGB2Lab, ImageFolderInstance
+from dataset import RGB2Lab, ImageFolderInstance, Rotation
 from util import adjust_learning_rate, AverageMeter
-from models.alexnet import alexnet
+from models.rot_alexnet import alexnet
+#from models.alexnet import alexnet
 from models.resnet import ResNetV2
 from NCE.NCEAverage import NCEAverage
 from NCE.NCECriterion import NCECriterion
@@ -96,14 +97,15 @@ def get_train_loader(args):
     normalize = transforms.Normalize(mean=[(0 + 100) / 2, (-84.914 + 90.781) / 2, (-107.857 + 94.478) / 2],
                                      std=[(100 - 0) / 2, (84.914 + 90.781) / 2, (107.857 + 94.478) / 2])
     train_transform = transforms.Compose([
+
         transforms.RandomResizedCrop(64, scale=(args.crop_low, 1.)),
         transforms.RandomHorizontalFlip(),
-        RGB2Lab(),
+        #RGB2Lab(),
+        Rotation(),
         transforms.ToTensor(),
         normalize,
     ])
     train_dataset = ImageFolderInstance(data_folder, transform=train_transform)
-    # train_dataset = datasets.STL10(args.data_folder, split='unlabeled', transform=train_transform, download=True)
     train_sampler = None
 
     # train loader
@@ -169,9 +171,6 @@ def train(epoch, train_loader, model, contrast, criterion_l, criterion_ab, optim
 
     end = time.time()
     for idx, (inputs, _, index) in enumerate(train_loader):
-        print(idx, inputs.shape, index.shape)
-        print(index)
-    # for idx, (inputs, index) in enumerate(train_loader):
         data_time.update(time.time() - end)
 
         bsz = inputs.size(0)

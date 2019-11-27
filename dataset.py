@@ -2,9 +2,9 @@ from __future__ import print_function
 
 import numpy as np
 from skimage import color
-
+import torch
 import torchvision.datasets as datasets
-
+from torchvision import transforms
 
 class ImageFolderInstance(datasets.ImageFolder):
 
@@ -32,3 +32,12 @@ class RGB2Lab(object):
         img = np.asarray(img, np.uint8)
         img = color.rgb2lab(img)
         return np.float32(img)
+
+class Rotation(object):
+    def __call__(self, img):
+        rot_img = transforms.Compose([transforms.RandomRotation(45)])(img)
+        rot_img = np.asarray(rot_img)
+        img = np.asarray(img)
+        img = np.concatenate((img,rot_img),2)
+        return img
+
