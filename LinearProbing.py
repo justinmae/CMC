@@ -111,9 +111,9 @@ def get_train_val_loader(args):
     train_folder = os.path.join(args.data_folder, 'train')
     val_folder = os.path.join(args.data_folder, 'val')
 
-    # TODO: Get mean and std for training set
-    normalize = transforms.Normalize(mean=[(0 + 100) / 2, (-86.183 + 98.233) / 2, (-107.857 + 94.478) / 2],
-                                     std=[(100 - 0) / 2, (86.183 + 98.233) / 2, (107.857 + 94.478) / 2])
+    # mean and std for STL-10 training set
+    normalize = transforms.Normalize(mean=[(0 + 100) / 2, (-70.737 + 85.700) / 2, (-89.826 + 94.478) / 2],
+                                     std=[(100 - 0) / 2, (70.737 + 85.700) / 2, (89.826 + 94.478) / 2])
     train_dataset = datasets.ImageFolder(
         train_folder,
         transforms.Compose([
@@ -127,8 +127,7 @@ def get_train_val_loader(args):
     val_dataset = datasets.ImageFolder(
         val_folder,
         transforms.Compose([
-            transforms.Resize(74),
-            transforms.CenterCrop(64),
+            transforms.Resize(64),
             RGB2Lab(),
             transforms.ToTensor(),
             normalize,
@@ -311,9 +310,10 @@ def validate(val_loader, model, classifier, criterion, opt):
         for idx, (input, target) in enumerate(val_loader):
 
             input = input.float()
-            if opt.gpu is not None:
-                input = input.cuda(opt.gpu, non_blocking=True)
-            target = target.cuda(opt.gpu, non_blocking=True)
+            if torch.cuda.is_available():
+                if opt.gpu is not None:
+                    input = input.cuda(opt.gpu, non_blocking=True)
+                target = target.cuda(opt.gpu, non_blocking=True)
 
             # compute output
             feat_l, feat_ab = model(input, opt.layer)
