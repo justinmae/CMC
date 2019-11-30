@@ -12,6 +12,7 @@ def main():
 
     # Move images from train to val
     val_path = "../data/val/"
+    train_path = "../data/train/"
     if not os.path.exists(val_path):
         os.mkdir(val_path)
     for i in fold:
@@ -19,6 +20,12 @@ def main():
         val_img = "../data/val/{}.png".format(i)
         if os.path.exists(train_img):
             os.rename(train_img, val_img)
+    # Change folder names
+    cnt = sum([len(files) for r, d, files in os.walk(data_folder + 'train')])
+    if cnt > 2000:
+        os.rename(val_path, '../data/tmp')
+        os.rename(train_path, val_path)
+        os.rename('../data/tmp', train_path)
 
     # Move val images into label folders
     for i in range(num_folds):
@@ -30,7 +37,6 @@ def main():
             os.rename(val_img, "../data/val/{}/{}.png".format(labels[idx], i))
 
     # Move train images into label folders
-    train_path = "../data/train/"
     for i in range(num_folds):
         if not os.path.exists(train_path+str(i)):
             os.mkdir(train_path+str(i))
