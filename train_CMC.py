@@ -93,16 +93,16 @@ def parse_option():
 
 def get_train_loader(args):
     """get the train loader"""
-    data_folder = os.path.join(args.data_folder, 'train')
-    #normalize = transforms.Normalize(mean=[(0 + 100) / 2, (-84.914 + 90.781) / 2, (-107.857 + 94.478) / 2],
-    #                                 std=[(100 - 0) / 2, (84.914 + 90.781) / 2, (107.857 + 94.478) / 2])
-    normalize = transforms.Normalize(mean = [0.4496, 0.4296, 0.3890,0.4496, 0.4296, 0.3890], std= [0.2062, 0.2011, 0.1977,0.2062, 0.2011, 0.1977])
+    data_folder = os.path.join(args.data_folder, 'unsupervised_train')
+    normalize = transforms.Normalize(mean=[(0 + 100) / 2, (-84.914 + 90.781) / 2, (-107.857 + 94.478) / 2],
+                                    std=[(100 - 0) / 2, (84.914 + 90.781) / 2, (107.857 + 94.478) / 2])
+    # normalize = transforms.Normalize(mean = [0.4496, 0.4296, 0.3890,0.4496, 0.4296, 0.3890], std= [0.2062, 0.2011, 0.1977,0.2062, 0.2011, 0.1977])
     train_transform = transforms.Compose([
 
         transforms.RandomResizedCrop(64, scale=(args.crop_low, 1.)),
         transforms.RandomHorizontalFlip(),
-        #RGB2Lab(),
-        Rotation(),
+        RGB2Lab(),
+        # Rotation(),
         transforms.ToTensor(),
         normalize,
     ])
