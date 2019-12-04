@@ -34,11 +34,11 @@ def parse_option():
     parser.add_argument('--save_freq', type=int, default=5, help='save frequency')
     parser.add_argument('--batch_size', type=int, default=256, help='batch_size')
     parser.add_argument('--num_workers', type=int, default=32, help='num of workers to use')
-    parser.add_argument('--epochs', type=int, default=400, help='number of training epochs')
+    parser.add_argument('--epochs', type=int, default=320, help='number of training epochs')
 
     # optimization
     parser.add_argument('--learning_rate', type=float, default=0.03, help='learning rate')
-    parser.add_argument('--lr_decay_epochs', type=str, default='250,300,350', help='where to decay lr, can be a list')
+    parser.add_argument('--lr_decay_epochs', type=str, default='200,240,280', help='where to decay lr, can be a list')
     parser.add_argument('--lr_decay_rate', type=float, default=0.1, help='decay rate for learning rate')
     parser.add_argument('--beta1', type=float, default=0.5, help='beta1 for adam')
     parser.add_argument('--beta2', type=float, default=0.999, help='beta2 for Adam')
