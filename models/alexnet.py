@@ -7,14 +7,14 @@ import torch.nn as nn
     Alexnet for STL-10
 """
 class alexnet(nn.Module):
-    def __init__(self, feat_dim=64):
+    def __init__(self, in_channel=(1,2), feat_dim=64):
         super(alexnet, self).__init__()
-
-        self.l_to_ab = alexnet_half(in_channel=1, feat_dim=feat_dim)
-        self.ab_to_l = alexnet_half(in_channel=2, feat_dim=feat_dim)
+        self.in_channel = in_channel
+        self.l_to_ab = alexnet_half(in_channel=in_channel[0], feat_dim=feat_dim)
+        self.ab_to_l = alexnet_half(in_channel=in_channel[1], feat_dim=feat_dim)
 
     def forward(self, x, layer=8):
-        l, ab = torch.split(x, [1, 2], dim=1)
+        l, ab = torch.split(x, [self.in_channel[0], self.in_channel[1]], dim=1)
         feat_l = self.l_to_ab(l, layer)
         feat_ab = self.ab_to_l(ab, layer)
         return feat_l, feat_ab

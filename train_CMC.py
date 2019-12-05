@@ -16,8 +16,7 @@ import tensorboard_logger as tb_logger
 from torchvision import transforms, datasets
 from dataset import RGB2Lab, ImageFolderInstance, Rotation
 from util import adjust_learning_rate, AverageMeter
-from models.rot_alexnet import alexnet
-#from models.alexnet import alexnet
+from models.alexnet import alexnet
 from models.resnet import ResNetV2
 from NCE.NCEAverage import NCEAverage
 from NCE.NCECriterion import NCECriterion
@@ -55,6 +54,9 @@ def parse_option():
     parser.add_argument('--nce_t', type=float, default=0.1) # Default: 0.07 for ImageNet, 0.1 for STL-10
     parser.add_argument('--nce_m', type=float, default=0.5)
     parser.add_argument('--feat_dim', type=int, default=64, help='dim of feat for inner product')
+
+    # add new view
+    parser.add_argument('--view', type=str, default='Lab', choices=['Lab', 'Rot'])
 
     # specify folder
     parser.add_argument('--data_folder', type=str, default=None, help='path to data')
@@ -94,15 +96,23 @@ def parse_option():
 def get_train_loader(args):
     """get the train loader"""
     data_folder = os.path.join(args.data_folder, 'unsupervised_train')
-    normalize = transforms.Normalize(mean=[(0 + 100) / 2, (-84.914 + 90.781) / 2, (-107.857 + 94.478) / 2],
-                                    std=[(100 - 0) / 2, (84.914 + 90.781) / 2, (107.857 + 94.478) / 2])
-    # normalize = transforms.Normalize(mean = [0.4496, 0.4296, 0.3890,0.4496, 0.4296, 0.3890], std= [0.2062, 0.2011, 0.1977,0.2062, 0.2011, 0.1977])
-    train_transform = transforms.Compose([
 
+    if args.view == 'Lab':
+        mean = [(0 + 100) / 2, (-84.914 + 90.781) / 2, (-107.857 + 94.478) / 2]
+        std = [(100 - 0) / 2, (84.914 + 90.781) / 2, (107.857 + 94.478) / 2]
+        view_transform = RGB2Lab()
+    elif args.view == 'Rot':
+        mean = [0.4496, 0.4296, 0.3890,0.4496, 0.4296, 0.3890]
+        std = [0.2062, 0.2011, 0.1977,0.2062, 0.2011, 0.1977]
+        view_transform = Rotation()
+    else:
+        raise NotImplemented('view not implemented {}'.format(args.view))
+    normalize = transforms.Normalize(mean=mean, std=std)
+
+    train_transform = transforms.Compose([
         transforms.RandomResizedCrop(64, scale=(args.crop_low, 1.)),
         transforms.RandomHorizontalFlip(),
-        RGB2Lab(),
-        # Rotation(),
+        view_transform,
         transforms.ToTensor(),
         normalize,
     ])
@@ -124,7 +134,10 @@ def get_train_loader(args):
 def set_model(args, n_data):
     # set the model
     if args.model == 'alexnet':
-        model = alexnet(args.feat_dim)
+        if args.view == 'Lab':
+            model = alexnet(in_channel=(1,2), feat_dim=args.feat_dim)
+        elif args.view == 'Rot':
+            model = alexnet(in_channel=(3,3), feat_dim=args.feat_dim)
     elif args.model.startswith('resnet'):
         model = ResNetV2(args.model)
     else:

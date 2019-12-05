@@ -53,6 +53,9 @@ def parse_option():
     parser.add_argument('--classifier_path', type=str, default=None, help='the classifier to test')
     parser.add_argument('--layer', type=int, default=5, help='which layer to evaluate')
 
+    # add new view
+    parser.add_argument('--view', type=str, default='Lab', choices=['Lab', 'Rot'])
+
     # path definition
     parser.add_argument('--data_folder', type=str, default=None, help='path to data')
     parser.add_argument('--save_path', type=str, default=None, help='path to save linear classifier')
@@ -112,13 +115,23 @@ def get_train_val_loader(args):
     test_folder = os.path.join(args.data_folder, 'test')
 
     # mean and std for STL-10 training set
-    normalize = transforms.Normalize(mean=[(0 + 100) / 2, (-70.737 + 85.700) / 2, (-89.826 + 94.478) / 2],
-                                     std=[(100 - 0) / 2, (70.737 + 85.700) / 2, (89.826 + 94.478) / 2])
+    if args.view == 'Lab':
+        mean = [(0 + 100) / 2, (-70.737 + 85.700) / 2, (-89.826 + 94.478) / 2]
+        std = [(100 - 0) / 2, (70.737 + 85.700) / 2, (89.826 + 94.478) / 2]
+        view_transform = RGB2Lab()
+    elif args.view == 'Rot':
+        mean = [0.4496, 0.4296, 0.3890,0.4496, 0.4296, 0.3890]
+        std = [0.2062, 0.2011, 0.1977,0.2062, 0.2011, 0.1977]
+        view_transform = Rotation()
+    else:
+        raise NotImplemented('view not implemented {}'.format(args.view))
+    normalize = transforms.Normalize(mean=mean, std=std)
+
     test_dataset = datasets.ImageFolder(
         test_folder,
         transforms.Compose([
             transforms.Resize(64),
-            RGB2Lab(),
+            view_transform,
             transforms.ToTensor(),
             normalize,
         ])
@@ -149,7 +162,10 @@ def get_train_val_loader(args):
 
 def set_model(args, ngpus_per_node):
     if args.model == 'alexnet':
-        model = alexnet()
+        if args.view == 'Lab':
+            model = alexnet(in_channel=(1,2))
+        elif args.view == 'Rot':
+            model = alexnet(in_channel=(3,3))
         classifier = LinearClassifierAlexNet(layer=args.layer, n_label=10, pool_type='max')
     elif args.model.startswith('resnet'):
         model = ResNetV2(args.model)
@@ -209,31 +225,6 @@ def set_model(args, ngpus_per_node):
 
     print('==> done')
     classifier.eval()
-
-    # if torch.cuda.is_available():
-    #     if args.distributed:
-    #         if args.gpu is not None:
-    #             torch.cuda.set_device(args.gpu)
-    #             model.cuda(args.gpu)
-    #             classifier.cuda(args.gpu)
-    #             args.batch_size = int(args.batch_size / ngpus_per_node)
-    #             args.num_workers = int(args.num_workers / ngpus_per_node)
-    #             model = torch.nn.parallel.DistributedDataParallel(model, device_ids=[args.gpu])
-    #             classifier = torch.nn.parallel.DistributedDataParallel(classifier, device_ids=[args.gpu])
-    #         else:
-    #             model.cuda()
-    #             model = torch.nn.parallel.DistributedDataParallel(model)
-    #             classifier.cuda()
-    #             classifier = torch.nn.parallel.DistributedDataParallel(classifier)
-    #     elif args.gpu is not None:
-    #         torch.cuda.set_device(args.gpu)
-    #         model = model.cuda(args.gpu)
-    #         classifier = classifier.cuda(args.gpu)
-    #     else:
-    #         model = torch.nn.DataParallel(model).cuda()
-    #         classifier = torch.nn.DataParallel(classifier).cuda()
-
-
 
     criterion = nn.CrossEntropyLoss().cuda(args.gpu)
 
@@ -374,62 +365,6 @@ def main_worker(gpu, ngpus_per_node, args):
 
     print('test_acc', test_acc)
     print('test_loss', test_loss)
-
-    # routine
-    # for epoch in range(args.start_epoch, args.epochs + 1):
-
-        # if args.distributed:
-        #     train_sampler.set_epoch(epoch)
-        #
-        # adjust_learning_rate(epoch, args, optimizer)
-        # print("==> training...")
-        #
-        # time1 = time.time()
-        # train_acc, train_loss = train(epoch, train_loader, model, classifier, criterion, optimizer, args)
-        # time2 = time.time()
-        # print('train epoch {}, total time {:.2f}'.format(epoch, time2 - time1))
-        #
-        # logger.log_value('train_acc', train_acc, epoch)
-        # logger.log_value('train_loss', train_loss, epoch)
-
-        # print("==> testing...")
-        # test_acc, test_loss = validate(val_loader, model, classifier, criterion, args)
-
-        # logger.log_value('test_acc', test_acc, epoch)
-        # logger.log_value('test_loss', test_loss, epoch)
-
-        # # save the best model
-        # if test_acc > best_acc1:
-        #     best_acc1 = test_acc
-        #     if not args.multiprocessing_distributed or (args.multiprocessing_distributed
-        #                                                 and args.rank % ngpus_per_node == 0):
-        #         state = {
-        #             'epoch': epoch,
-        #             'classifier': classifier.state_dict(),
-        #             'best_acc1': best_acc1,
-        #             'optimizer': optimizer.state_dict(),
-        #         }
-        #         save_name = '{}_layer{}.pth'.format(args.model, args.layer)
-        #         save_name = os.path.join(args.save_folder, save_name)
-        #         print('saving model!')
-        #         torch.save(state, save_name)
-        #
-        # # regular save
-        # if not args.multiprocessing_distributed or \
-        #         (args.multiprocessing_distributed and args.rank % ngpus_per_node == 0):
-        #     if epoch % args.save_freq == 0:
-        #         print('==> Saving...')
-        #         state = {
-        #             'epoch': epoch,
-        #             'classifier': classifier.state_dict(),
-        #             'best_acc1': best_acc1,
-        #             'optimizer': optimizer.state_dict(),
-        #         }
-        #         save_file = os.path.join(args.save_folder, 'ckpt_epoch_{epoch}.pth'.format(epoch=epoch))
-        #         torch.save(state, save_file)
-
-        # tensorboard logger
-        # pass
 
 
 if __name__ == '__main__':

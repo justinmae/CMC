@@ -17,7 +17,7 @@ from torchvision import transforms, datasets
 from dataset import RGB2Lab
 from util import adjust_learning_rate, AverageMeter, accuracy
 
-# from models.alexnet import alexnet
+from models.alexnet import alexnet
 from models.resnet import ResNetV2
 from models.LinearModel import LinearClassifierAlexNet, LinearClassifierResNetV2
 
@@ -51,6 +51,8 @@ def parse_option():
     parser.add_argument('--model', type=str, default='alexnet', choices=['alexnet', 'resnet50', 'resnet101'])
     parser.add_argument('--model_path', type=str, default=None, help='the model to test')
     parser.add_argument('--layer', type=int, default=5, help='which layer to evaluate')
+
+    # add new view
     parser.add_argument('--view', type=str, default='Lab', choices=['Lab', 'Rot'])
 
     # path definition
@@ -113,14 +115,24 @@ def get_train_val_loader(args):
     val_folder = os.path.join(args.data_folder, 'val')
 
     # mean and std for STL-10 training set
-    normalize = transforms.Normalize(mean=[(0 + 100) / 2, (-70.737 + 85.700) / 2, (-89.826 + 94.478) / 2],
-                                     std=[(100 - 0) / 2, (70.737 + 85.700) / 2, (89.826 + 94.478) / 2])
+    if args.view == 'Lab':
+        mean = [(0 + 100) / 2, (-70.737 + 85.700) / 2, (-89.826 + 94.478) / 2]
+        std = [(100 - 0) / 2, (70.737 + 85.700) / 2, (89.826 + 94.478) / 2]
+        view_transform = RGB2Lab()
+    elif args.view == 'Rot':
+        mean = [0.4496, 0.4296, 0.3890,0.4496, 0.4296, 0.3890]
+        std = [0.2062, 0.2011, 0.1977,0.2062, 0.2011, 0.1977]
+        view_transform = Rotation()
+    else:
+        raise NotImplemented('view not implemented {}'.format(args.view))
+    normalize = transforms.Normalize(mean=mean, std=std)
+
     train_dataset = datasets.ImageFolder(
         train_folder,
         transforms.Compose([
             transforms.RandomResizedCrop(64, scale=(args.crop_low, 1.)),
             transforms.RandomHorizontalFlip(),
-            RGB2Lab(),
+            view_transform,
             transforms.ToTensor(),
             normalize,
         ])
@@ -129,7 +141,7 @@ def get_train_val_loader(args):
         val_folder,
         transforms.Compose([
             transforms.Resize(64),
-            RGB2Lab(),
+            view_transform,
             transforms.ToTensor(),
             normalize,
         ])
@@ -155,13 +167,11 @@ def get_train_val_loader(args):
 
 
 def set_model(args, ngpus_per_node):
-    if args.view == 'Lab':
-        from models.alexnet import alexnet
-    elif args.vioew == 'Rot':
-        from models.rot_alexnet import alexnet
-
     if args.model == 'alexnet':
-        model = alexnet()
+        if args.view == 'Lab':
+            model = alexnet(in_channel=(1,2))
+        elif args.view == 'Rot':
+            model = alexnet(in_channel=(3,3))
         classifier = LinearClassifierAlexNet(layer=args.layer, n_label=10, pool_type='max')
     elif args.model.startswith('resnet'):
         model = ResNetV2(args.model)
