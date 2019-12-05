@@ -17,7 +17,7 @@ from torchvision import transforms, datasets
 from dataset import RGB2Lab
 from util import adjust_learning_rate, AverageMeter, accuracy
 
-from models.alexnet import alexnet
+# from models.alexnet import alexnet
 from models.resnet import ResNetV2
 from models.LinearModel import LinearClassifierAlexNet, LinearClassifierResNetV2
 
@@ -51,6 +51,7 @@ def parse_option():
     parser.add_argument('--model', type=str, default='alexnet', choices=['alexnet', 'resnet50', 'resnet101'])
     parser.add_argument('--model_path', type=str, default=None, help='the model to test')
     parser.add_argument('--layer', type=int, default=5, help='which layer to evaluate')
+    parser.add_argument('--view', type=str, default='Lab', choices=['Lab', 'Rot'])
 
     # path definition
     parser.add_argument('--data_folder', type=str, default=None, help='path to data')
@@ -154,6 +155,11 @@ def get_train_val_loader(args):
 
 
 def set_model(args, ngpus_per_node):
+    if args.view == 'Lab':
+        from models.alexnet import alexnet
+    elif args.vioew == 'Rot':
+        from models.rot_alexnet import alexnet
+
     if args.model == 'alexnet':
         model = alexnet()
         classifier = LinearClassifierAlexNet(layer=args.layer, n_label=10, pool_type='max')
