@@ -14,7 +14,7 @@ from torch.utils.data import distributed
 import tensorboard_logger as tb_logger
 
 from torchvision import transforms, datasets
-from dataset import RGB2Lab
+from dataset import RGB2Lab, Rotation
 from util import adjust_learning_rate, AverageMeter, accuracy
 
 from models.alexnet import alexnet
@@ -36,9 +36,10 @@ def parse_option():
     parser.add_argument('--epochs', type=int, default=100, help='number of training epochs')
 
     # optimization
-    parser.add_argument('--learning_rate', type=float, default=0.1, help='learning rate')
-    parser.add_argument('--lr_decay_epochs', type=str, default='60,70,80,90', help='where to decay lr, can be a list')
+    parser.add_argument('--learning_rate', type=float, default=1e-3, help='learning rate')
+    parser.add_argument('--lr_decay_epochs', type=str, default='60,80', help='where to decay lr, can be a list')
     parser.add_argument('--lr_decay_rate', type=float, default=0.2, help='decay rate for learning rate')
+    parser.add_argument('--optim', type=str, default='adam', choices=['sgd', 'adam'])
     parser.add_argument('--momentum', type=float, default=0.9, help='momentum')
     parser.add_argument('--weight_decay', type=float, default=0, help='weight decay')
     parser.add_argument('--beta1', type=float, default=0.5, help='beta1 for adam')
@@ -56,12 +57,12 @@ def parse_option():
     parser.add_argument('--view', type=str, default='Lab', choices=['Lab', 'Rot'])
 
     # path definition
-    parser.add_argument('--data_folder', type=str, default=None, help='path to data')
+    parser.add_argument('--data_folder', type=str, default='../data', help='path to data')
     parser.add_argument('--save_path', type=str, default=None, help='path to save linear classifier')
     parser.add_argument('--tb_path', type=str, default=None, help='path to tensorboard')
 
     # data crop threshold
-    parser.add_argument('--crop_low', type=float, default=0.08, help='low area in crop')
+    parser.add_argument('--crop_low', type=float, default=0.2, help='low area in crop')
 
     # log file
     parser.add_argument('--log', type=str, default='time_linear.txt', help='log file')
@@ -99,11 +100,13 @@ def parse_option():
     opt.model_name = 'calibrated_{}_bsz_{}_lr_{}_decay_{}'.format(opt.model_name, opt.batch_size, opt.learning_rate,
                                                                   opt.weight_decay)
 
+    opt.model_name = '{}_view_{}'.format(opt.model_name, opt.view)
+
     opt.tb_folder = os.path.join(opt.tb_path, opt.model_name + '_layer{}'.format(opt.layer))
     if not os.path.isdir(opt.tb_folder):
         os.makedirs(opt.tb_folder)
 
-    opt.save_folder = os.path.join(opt.save_path, opt.model_name)
+    opt.save_folder = os.path.join(opt.save_path, 'linear_probe', opt.model_name)
     if not os.path.isdir(opt.save_folder):
         os.makedirs(opt.save_folder)
 
@@ -111,13 +114,17 @@ def parse_option():
 
 
 def get_train_val_loader(args):
-    train_folder = os.path.join(args.data_folder, 'train')
-    val_folder = os.path.join(args.data_folder, 'val')
+    # train_folder = os.path.join(args.data_folder, 'train')
+    # val_folder = os.path.join(args.data_folder, 'val')
 
     # mean and std for STL-10 training set
     if args.view == 'Lab':
-        mean = [(0 + 100) / 2, (-70.737 + 85.700) / 2, (-89.826 + 94.478) / 2]
-        std = [(100 - 0) / 2, (70.737 + 85.700) / 2, (89.826 + 94.478) / 2]
+        mean = [(0 + 100) / 2,
+                (-86.183 + 98.233) / 2,
+                (-107.857 + 94.478) / 2]
+        std = [(100 - 0) / 2,
+               (86.183 + 98.233) / 2,
+               (107.857 + 94.478) / 2]
         view_transform = RGB2Lab()
     elif args.view == 'Rot':
         mean = [0.4496, 0.4296, 0.3890,0.4496, 0.4296, 0.3890]
@@ -127,25 +134,30 @@ def get_train_val_loader(args):
         raise NotImplemented('view not implemented {}'.format(args.view))
     normalize = transforms.Normalize(mean=mean, std=std)
 
-    train_dataset = datasets.ImageFolder(
-        train_folder,
-        transforms.Compose([
-            transforms.RandomResizedCrop(64, scale=(args.crop_low, 1.)),
-            transforms.RandomHorizontalFlip(),
-            view_transform,
-            transforms.ToTensor(),
-            normalize,
-        ])
-    )
-    val_dataset = datasets.ImageFolder(
-        val_folder,
-        transforms.Compose([
-            transforms.Resize(64),
-            view_transform,
-            transforms.ToTensor(),
-            normalize,
-        ])
-    )
+    train_transform = transforms.Compose([
+        transforms.RandomResizedCrop(64, scale=(0.3, 1.0), ratio=(0.7, 1.4)),
+        transforms.RandomHorizontalFlip(),
+        view_transform,
+        transforms.ToTensor(),
+        normalize,
+    ])
+
+    val_transform = transforms.Compose([
+        transforms.Resize(70),
+        transforms.CenterCrop(64),
+        view_transform,
+        transforms.ToTensor(),
+        normalize,
+    ])
+
+    train_dataset = datasets.STL10(
+        args.data_folder, 'train',
+        transform=train_transform, download=True)
+    val_dataset = datasets.STL10(
+        args.data_folder, 'test',
+        transform=val_transform, download=True)
+
+
     print('number of train: {}'.format(len(train_dataset)))
     print('number of val: {}'.format(len(val_dataset)))
 
@@ -187,6 +199,7 @@ def set_model(args, ngpus_per_node):
         ckpt = torch.load(args.model_path, map_location = 'cpu')
     state_dict = ckpt['model']
 
+
     has_module = False
     for k, v in state_dict.items():
         if k.startswith('module'):
@@ -202,8 +215,8 @@ def set_model(args, ngpus_per_node):
     else:
         model.load_state_dict(state_dict)
 
+    print("==> loaded checkpoint '{}' (epoch {})".format(args.model_path, ckpt['epoch']))
     print('==> done')
-    model.eval()
 
     if torch.cuda.is_available():
         if args.distributed:
@@ -228,7 +241,7 @@ def set_model(args, ngpus_per_node):
             model = torch.nn.DataParallel(model).cuda()
             classifier = torch.nn.DataParallel(classifier).cuda()
 
-
+    model.eval()
 
     criterion = nn.CrossEntropyLoss().cuda(args.gpu)
 
@@ -236,10 +249,16 @@ def set_model(args, ngpus_per_node):
 
 
 def set_optimizer(args, classifier):
-    optimizer = optim.SGD(classifier.parameters(),
-                          lr=args.learning_rate,
-                          momentum=args.momentum,
-                          weight_decay=args.weight_decay)
+    if args.optim == 'sgd':
+        optimizer = optim.SGD(classifier.parameters(),
+                              lr=args.learning_rate,
+                              momentum=args.momentum,
+                              weight_decay=args.weight_decay)
+    else:
+        optimizer = optim.Adam(classifier.parameters(),
+                               lr=args.learning_rate,
+                               betas=(args.beta1, args.beta2),
+                               weight_decay=args.weight_decay)
     return optimizer
 
 

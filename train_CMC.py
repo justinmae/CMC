@@ -14,7 +14,7 @@ import socket
 import tensorboard_logger as tb_logger
 
 from torchvision import transforms, datasets
-from dataset import RGB2Lab, ImageFolderInstance, Rotation
+from dataset import RGB2Lab, ImageFolderInstance, DatasetInstance, Rotation
 from util import adjust_learning_rate, AverageMeter
 from models.alexnet import alexnet
 from models.resnet import ResNetV2
@@ -30,10 +30,10 @@ def parse_option():
 
     parser.add_argument('--print_freq', type=int, default=10, help='print frequency')
     parser.add_argument('--tb_freq', type=int, default=500, help='tb frequency')
-    parser.add_argument('--save_freq', type=int, default=5, help='save frequency')
-    parser.add_argument('--batch_size', type=int, default=256, help='batch_size')
-    parser.add_argument('--num_workers', type=int, default=32, help='num of workers to use')
-    parser.add_argument('--epochs', type=int, default=320, help='number of training epochs')
+    parser.add_argument('--save_freq', type=int, default=10, help='save frequency')
+    parser.add_argument('--batch_size', type=int, default=128, help='batch_size')
+    parser.add_argument('--num_workers', type=int, default=18, help='num of workers to use')
+    parser.add_argument('--epochs', type=int, default=300, help='number of training epochs')
 
     # optimization
     parser.add_argument('--learning_rate', type=float, default=0.03, help='learning rate')
@@ -53,18 +53,18 @@ def parse_option():
     parser.add_argument('--nce_k', type=int, default=4096)
     parser.add_argument('--nce_t', type=float, default=0.1) # Default: 0.07 for ImageNet, 0.1 for STL-10
     parser.add_argument('--nce_m', type=float, default=0.5)
-    parser.add_argument('--feat_dim', type=int, default=64, help='dim of feat for inner product')
+    parser.add_argument('--feat_dim', type=int, default=128, help='dim of feat for inner product')
 
     # add new view
     parser.add_argument('--view', type=str, default='Lab', choices=['Lab', 'Rot'])
 
     # specify folder
-    parser.add_argument('--data_folder', type=str, default=None, help='path to data')
+    parser.add_argument('--data_folder', type=str, default='../data', help='path to data')
     parser.add_argument('--model_path', type=str, default=None, help='path to save model')
     parser.add_argument('--tb_path', type=str, default=None, help='path to tensorboard')
 
     # data crop threshold
-    parser.add_argument('--crop_low', type=float, default=0.08, help='low area in crop')
+    parser.add_argument('--crop_low', type=float, default=0.2, help='low area in crop')
 
     opt = parser.parse_args()
 
@@ -78,6 +78,8 @@ def parse_option():
 
     opt.model_name = 'memory_nce_{}_{}_lr_{}_decay_{}_bsz_{}'.format(opt.nce_k, opt.model, opt.learning_rate,
                                                                      opt.weight_decay, opt.batch_size)
+
+    opt.model_name = '{}_view_{}'.format(opt.model_name, opt.view)
 
     opt.model_folder = os.path.join(opt.model_path, opt.model_name)
     if not os.path.isdir(opt.model_folder):
@@ -95,11 +97,15 @@ def parse_option():
 
 def get_train_loader(args):
     """get the train loader"""
-    data_folder = os.path.join(args.data_folder, 'unsupervised_train')
+    # data_folder = os.path.join(args.data_folder, 'unsupervised_train')
 
     if args.view == 'Lab':
-        mean = [(0 + 100) / 2, (-84.914 + 90.781) / 2, (-107.857 + 94.478) / 2]
-        std = [(100 - 0) / 2, (84.914 + 90.781) / 2, (107.857 + 94.478) / 2]
+        mean = [(0 + 100) / 2,
+                (-86.183 + 98.233) / 2,
+                (-107.857 + 94.478) / 2]
+        std = [(100 - 0) / 2,
+               (86.183 + 98.233) / 2,
+               (107.857 + 94.478) / 2]
         view_transform = RGB2Lab()
     elif args.view == 'Rot':
         mean = [0.4496, 0.4296, 0.3890,0.4496, 0.4296, 0.3890]
@@ -109,6 +115,7 @@ def get_train_loader(args):
         raise NotImplemented('view not implemented {}'.format(args.view))
     normalize = transforms.Normalize(mean=mean, std=std)
 
+
     train_transform = transforms.Compose([
         transforms.RandomResizedCrop(64, scale=(args.crop_low, 1.)),
         transforms.RandomHorizontalFlip(),
@@ -116,7 +123,14 @@ def get_train_loader(args):
         transforms.ToTensor(),
         normalize,
     ])
-    train_dataset = ImageFolderInstance(data_folder, transform=train_transform)
+
+    # Uses unlabeled + train: total 105000 images
+    train_dataset = datasets.STL10(
+        args.data_folder, 'train+unlabeled',
+        transform=train_transform, download=True)
+    train_dataset = DatasetInstance(train_dataset)
+    # train_dataset = ImageFolderInstance(data_folder, transform=train_transform)
+
     train_sampler = None
 
     # train loader
@@ -190,7 +204,7 @@ def train(epoch, train_loader, model, contrast, criterion_l, criterion_ab, optim
         bsz = inputs.size(0)
         inputs = inputs.float()
         if torch.cuda.is_available():
-            index = index.cuda()
+            index = index.cuda(non_blocking=True)
             inputs = inputs.cuda()
 
         # ===================forward=====================
@@ -233,7 +247,7 @@ def train(epoch, train_loader, model, contrast, criterion_l, criterion_ab, optim
                    epoch, idx + 1, len(train_loader), batch_time=batch_time,
                    data_time=data_time, loss=losses, lprobs=l_prob_meter,
                    abprobs=ab_prob_meter))
-            print(out_l.shape)
+            # print(out_l.shape)
             sys.stdout.flush()
 
     return l_loss_meter.avg, l_prob_meter.avg, ab_loss_meter.avg, ab_prob_meter.avg
