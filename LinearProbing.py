@@ -14,7 +14,7 @@ from torch.utils.data import distributed
 import tensorboard_logger as tb_logger
 
 from torchvision import transforms, datasets
-from dataset import RGB2Lab, Rotation
+from dataset import RGB2Lab, Rotation, LabRotMix
 from util import adjust_learning_rate, AverageMeter, accuracy
 
 from models.alexnet import alexnet
@@ -54,7 +54,7 @@ def parse_option():
     parser.add_argument('--layer', type=int, default=5, help='which layer to evaluate')
 
     # add new view
-    parser.add_argument('--view', type=str, default='Lab', choices=['Lab', 'Rot'])
+    parser.add_argument('--view', type=str, default='Lab', choices=['Lab', 'Rot', 'LabRot'])
 
     # path definition
     parser.add_argument('--data_folder', type=str, default='../data', help='path to data')
@@ -130,6 +130,14 @@ def get_train_val_loader(args):
         mean = [0.4496, 0.4296, 0.3890,0.4496, 0.4296, 0.3890]
         std = [0.2062, 0.2011, 0.1977,0.2062, 0.2011, 0.1977]
         view_transform = Rotation()
+    elif args.view == 'LabRot':
+        mean = [(0 + 100) / 2,
+                (-86.183 + 98.233) / 2,
+                (-107.857 + 94.478) / 2]
+        std = [(100 - 0) / 2,
+               (86.183 + 98.233) / 2,
+               (107.857 + 94.478) / 2]
+        view_transform = LabRotMix()
     else:
         raise NotImplemented('view not implemented {}'.format(args.view))
     normalize = transforms.Normalize(mean=mean, std=std)
@@ -184,6 +192,8 @@ def set_model(args, ngpus_per_node):
             model = alexnet(in_channel=(1,2))
         elif args.view == 'Rot':
             model = alexnet(in_channel=(3,3))
+        elif args.view == 'LabRot':
+            model = alexnet(in_channel=(1, 2))
         classifier = LinearClassifierAlexNet(layer=args.layer, n_label=10, pool_type='max')
     elif args.model.startswith('resnet'):
         model = ResNetV2(args.model)
