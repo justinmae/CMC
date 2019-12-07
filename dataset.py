@@ -69,3 +69,11 @@ class Rotation(object):
         img = np.concatenate((img,rot_img),2)
         return img
 
+class LabRotMix(object):
+    def __call__(self, img):
+        rot_img = TF.rotate(img, 45)
+        img = np.asarray(img, np.uint8)
+        img = color.rgb2lab(img)
+        rot_img = np.asarray(rot_img, np.uint8)
+        rot_img = color.rgb2lab(rot_img)
+        return np.float32(np.concatenate((img[:,:,:1], rot_img[:,:,1:]),2))
