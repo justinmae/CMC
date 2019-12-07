@@ -5,6 +5,7 @@ from skimage import color
 import torch
 import torchvision.datasets as datasets
 from torchvision import transforms
+import torchvision.transforms.functional as TF
 
 class ImageFolderInstance(datasets.ImageFolder):
 
@@ -61,9 +62,10 @@ class RGB2Lab(object):
 
 class Rotation(object):
     def __call__(self, img):
-        rot_img = transforms.Compose([transforms.RandomRotation(45)])(img)
-        rot_img = np.asarray(rot_img)
-        img = np.asarray(img)
+        # rot_img = transforms.Compose([transforms.RandomRotation(45)])(img)
+        # rot_img = np.asarray(rot_img)
+        # img = np.asarray(img)
+        rot_img = TF.rotate(img, 45)
         img = np.concatenate((img,rot_img),2)
         return img
 
